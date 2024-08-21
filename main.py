@@ -14,8 +14,9 @@ tilt = 0
 xPercent = 0
 yPercent = 0
 panDegree = 540
-panPercent = 0
-panDisabledZone = 0
+headMaxPanDegrees = 540
+panOffset = 0 / headMaxPanDegrees # 90 grad -> 90 / 540
+
 
 panInvert = True
 tiltInvert = True
@@ -42,7 +43,7 @@ def main():
 
 
 def calculate():
-    global yPercent, tilt, xPercent, pan
+    global yPercent, tilt, xPercent, pan, panOffset
     sender = sacn.sACNsender(source_name='FollowYou',
                              fps=50,  # 60  passt net ganz zu den daten von sacn view => 43,48hz
                              bind_address=ipaddress)
@@ -57,7 +58,7 @@ def calculate():
             tilt = tilt + yPercent
             tiltMax = 65535
             if onlyHalfTilt:
-                tiltMax = 65535 / 2
+                tiltMax = tiltMax / 2
             if tilt > tiltMax:
                 tilt = tiltMax
         if yPercent < 0:
@@ -70,15 +71,17 @@ def calculate():
         # ------- pan ----------------
         if xPercent > 0:
             pan = pan + xPercent
-            panMax = 65535 - ((1 / 3) * 65535)
+            panMax = 65535 - ((1 / 3) * 65535) + panOffset
             if only180Pan:
-                panMax = 65535 - 4 / 6 * 65535
-            if pan > panMax:
+                panMax = panMax / 2 + panOffset
+            if pan + panOffset > panMax:
                 pan = panMax
         if xPercent < 0:
             pan = pan + xPercent
-            if pan < 0:
-                pan = 0
+            if pan < 0 + panOffset:
+                pan = 0 + panOffset
+        print(pan)
+        print(panOffset)
         panInBytes = int(pan).to_bytes(2, "big")
         dmxOut[0] = panInBytes[0]
         dmxOut[1] = panInBytes[1]
@@ -86,8 +89,8 @@ def calculate():
 
 
 if __name__ == "__main__":
-    panPercent = panDegree / 360
-    panDisabledZone = 1 - panPercent
+    panOffset = (panOffset * headMaxPanDegrees) / headMaxPanDegrees * 65535
+    pan = panOffset
     calculate = threading.Thread(target=calculate,
                                  args=(),
                                  name="calculate")
